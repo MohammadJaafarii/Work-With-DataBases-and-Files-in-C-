@@ -6,13 +6,12 @@
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlRecord>
 #include <string>
+#include <QString>
 #include <QCoreApplication>
 #include <QDebug>
 #include <fstream>
 
-using std::cout;
 using std::cin;
-using std:: endl;
 using std::string;
 using std::map;
 using std::vector;
@@ -50,26 +49,6 @@ public:
             qDebug() << "Error occurred while executing query!";
         }
         return query;
-    }
-
-    void printQueryResult(QSqlQuery& query) {
-        qDebug() << "Query result:";
-        QSqlRecord record = query.record();
-        int columnCount = record.count();
-
-        while (query.next()) {
-            QStringList rowValues;
-            for (int i = 0; i < columnCount; ++i) {
-                QString columnName = record.fieldName(i);
-                QVariant columnValue = query.value(i);
-                if (columnValue.isNull()) {
-                    rowValues << QString("%1: %2").arg(columnName, "NULL");
-                } else {
-                    rowValues << QString("%1: %2").arg(columnName, columnValue.toString());
-                }
-            }
-            qDebug().noquote() << rowValues.join(", ");
-        }
     }
 
 
@@ -133,7 +112,7 @@ public:
 
     }
 
-    static void saveUsersToFile(const string& fileName, const std::map<int, vector<User>>& users) {
+    static void saveUsersToFile(const string& fileName, const map<int, vector<User>>& users) {
         try {
             std::ofstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
@@ -165,11 +144,11 @@ public:
         }
     }
 
-    static void loadUsersFromFile(const string& fileName, std::map<int, std::vector<User>>& users) {
+    static void loadUsersFromFile(const string& fileName, map<int, vector<User>>& users) {
         try {
             std::ifstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
-                qDebug() << "Error: Unable to open file for reading";
+                qDebug() << "Error: Unable to open file for reading" << QString::fromStdString(fileName);
                 return;
             }
 
@@ -199,10 +178,38 @@ public:
             }
 
             file.close();
-            qDebug() << "Users loaded from file successfully.";
+            qDebug() << "Loaded groups from file:" << QString::fromStdString(fileName);
         }
         catch (...) {
             qDebug() << "Error occurred while loading users from file.";
+        }
+    }
+
+    static void saveUsersToDatabase(DatabaseManager& dbManager, const map<int, vector<User>>& users) {
+        try {
+            for (const auto& pair : users) {
+                int id = pair.first;
+                const vector<User>& userList = pair.second;
+                for (const User& user : userList) {
+                    QSqlQuery query;
+                    query.prepare("INSERT INTO 'User' (name, IP, Password, GroupID) VALUES (:name, :IP, :Password, :GroupID)");
+                    query.bindValue(":name", QString::fromStdString(user.name));
+                    query.bindValue(":IP", qlonglong(user.IP));
+                    query.bindValue(":Password", QString::fromStdString(user.Password));
+                    query.bindValue(":GroupID", user.GroupID == -1 ? QVariant(QVariant::Int) : user.GroupID);
+
+                    if (!query.exec()) {
+                        qDebug() << "Error:\nInserting data into User table for UserID:" << user.ID << " - " << query.lastError().text();
+                        continue;
+                    }
+                    QString success_msg = QString("User with UserID '%1' inserted successfully").arg(QString::number(id));
+                    qDebug() << success_msg;
+                }
+            }
+
+        }
+        catch (...) {
+            qDebug() << "Error occurred while saving users to database.";
         }
     }
 };
@@ -283,8 +290,9 @@ public:
                 }
             }
 
-            qDebug() << "Groups saved to file" << QString::fromStdString(fileName) << "successfully.";
+
             file.close();
+            qDebug() << "Groups saved to file" << QString::fromStdString(fileName) << "successfully.";
         }
         catch (...) {
             qDebug() << "Error occurred while saving Groups to file.";
@@ -298,6 +306,8 @@ public:
             std::ifstream file(filename, std::ios::binary);
             if (!file.is_open()) {
                 qDebug() << "Error opening file for reading:" << QString::fromStdString(filename);
+                return;
+
             }
 
 
@@ -324,12 +334,40 @@ public:
                 groups[groupID].push_back(group);
             }
 
-            qDebug() << "Loaded groups from file:" << QString::fromStdString(filename);
             file.close();
+            qDebug() << "Loaded groups from file:" << QString::fromStdString(filename);
         }
 
         catch (...) {
             qDebug() << "Error occurred while loading Groups from file.";
+        }
+
+    }
+
+    static void saveGroupsToDatabase(DatabaseManager& dbManager, const map<int, vector<Group>>& groups) {
+        try{
+            for (const auto& pair : groups) {
+                int id = pair.first;
+                const vector<Group>& groupList = pair.second;
+                for (const Group& group : groupList) {
+                    QSqlQuery query;
+                    query.prepare("INSERT INTO 'Group' (name, description, is_active) VALUES (:Name, :Description, :Is_Active);");
+                    query.bindValue(":Name", QString::fromStdString(group.Name));
+                    query.bindValue(":Description", group.Description.empty() ? QVariant(QVariant::String) : QString::fromStdString(group.Description));
+                    query.bindValue(":Is_Active", group.Is_Active ? 1 : 0);
+
+                    if (!query.exec()) {
+                        qDebug() << "Error inserting data into Group:" << query.lastError().text() << "for group ID:" << QString::number(group.ID);
+                        continue;
+                    } else {
+                        QString success_msg = QString("Group with ID '%1' inserted successfully").arg(id);
+                        qDebug() << success_msg;
+                    }
+                }
+            }
+        }
+        catch (...) {
+            qDebug() << "Error occurred while saving groups to database.";
         }
 
     }
@@ -364,20 +402,20 @@ public:
         }
     }
 
-    static map<int, std::vector<DetailPersonalInfo>> loadDetailPersonalInfo(DatabaseManager& dbManager,
-                                                                            map<int, std::vector<DetailPersonalInfo>>& details) {
+    static map<int, vector<DetailPersonalInfo>> loadDetailPersonalInfo(DatabaseManager& dbManager,
+                                                                            map<int, vector<DetailPersonalInfo>>& details) {
 
         try{
             const QString query_command = "SELECT * FROM 'DetailPersonalInfo'";
             QSqlQuery query = dbManager.executeQuery(query_command);
             while (query.next()) {
                 int userID = query.value(0).toInt();
-                std::string firstName = query.value(1).toString().toStdString();
-                std::string lastName = query.value(2).toString().toStdString();
-                std::string office = query.value(3).toString().toStdString();
-                std::string phone = query.value(4).toString().toStdString();
-                std::string personnelCode = query.value(5).toString().toStdString();
-                std::string address = query.value(6).toString().toStdString();
+                string firstName = query.value(1).toString().toStdString();
+                string lastName = query.value(2).toString().toStdString();
+                string office = query.value(3).toString().toStdString();
+                string phone = query.value(4).toString().toStdString();
+                string personnelCode = query.value(5).toString().toStdString();
+                string address = query.value(6).toString().toStdString();
 
                 DetailPersonalInfo detail(userID, firstName, lastName, office, phone, personnelCode, address);
                 details[userID].push_back(detail);
@@ -393,7 +431,7 @@ public:
 
     }
 
-    static void saveDetailPersonalInfosToFile(const std::string& fileName, const std::map<int, std::vector<DetailPersonalInfo>>& details) {
+    static void saveDetailPersonalInfosToFile(const string& fileName, const map<int, vector<DetailPersonalInfo>>& details) {
         try {
             std::ofstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
@@ -403,7 +441,7 @@ public:
 
             for (const auto& pair : details) {
                 int userID = pair.first;
-                const std::vector<DetailPersonalInfo>& detailList = pair.second;
+                const vector<DetailPersonalInfo>& detailList = pair.second;
 
                 for (const DetailPersonalInfo& detail : detailList) {
                     file.write(reinterpret_cast<const char*>(&userID), sizeof(userID));
@@ -448,14 +486,14 @@ public:
                 }
             }
 
-            qDebug() << "DetailPersonalInfos saved to file" << QString::fromStdString(fileName) << "successfully.";
             file.close();
+            qDebug() << "DetailPersonalInfos saved to file" << QString::fromStdString(fileName) << "successfully.";
         } catch (...) {
             qDebug() << "Error occurred while saving DetailPersonalInfos to file.";
         }
     }
 
-    static map<int, vector<DetailPersonalInfo>>& loadDetailPersonalInfosFromFile(const std::string& filename,
+    static map<int, vector<DetailPersonalInfo>>& loadDetailPersonalInfosFromFile(const string& filename,
                                                              map<int, vector<DetailPersonalInfo>>& details) {
         try {
             std::ifstream file(filename, std::ios::binary);
@@ -521,13 +559,48 @@ public:
                 details[userID].push_back(detail);
             }
 
-            qDebug() << "Loaded DetailPersonalInfos from file:" << QString::fromStdString(filename);
             file.close();
+            qDebug() << "Loaded DetailPersonalInfos from file:" << QString::fromStdString(filename);
         } catch (...) {
             qDebug() << "Error occurred while loading DetailPersonalInfos from file.";
         }
 
         return details;
+    }
+
+    static void saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const map<int, vector<DetailPersonalInfo>>& details) {
+
+        try{
+            for (const auto& pair : details) {
+                int userID = pair.first;
+                const std::vector<DetailPersonalInfo>& detailList = pair.second;
+                for (const DetailPersonalInfo& detail : detailList) {
+                    QSqlQuery query;
+                    query.prepare("INSERT INTO 'DetailPersonalInfo' (userid, firstname, lastname, office, phone, personnelcode, address) "
+                                  "VALUES (:UserID, :FirstName, :LastName, :Office, :Phone, :PersonnelCode, :Address)");
+
+                    query.bindValue(":UserID", detail.UserID);
+                    query.bindValue(":FirstName", detail.FirstName.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.FirstName));
+                    query.bindValue(":LastName", detail.LastName.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.LastName));
+                    query.bindValue(":Office", detail.Office.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.Office));
+                    query.bindValue(":Phone", detail.Phone.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.Phone));
+                    query.bindValue(":PersonnelCode", detail.PersonnelCode.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.PersonnelCode));
+                    query.bindValue(":Address", detail.Address.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.Address));
+
+                    if (!query.exec()) {
+                        qDebug() << "Error inserting data into DetailPersonalInfo:" << query.lastError().text() << "for UserID:" << userID;
+                        continue;
+                    } else {
+                        QString success_msg = QString("DetailPersonalInfo with UserID '%1' inserted successfully").arg(detail.UserID);
+                        qDebug() << success_msg;
+                    }
+                }
+            }
+        }
+        catch (...) {
+            qDebug() << "Error occurred while saving DetailPersonalInfos to database.";
+        }
+
     }
 
 
@@ -539,22 +612,55 @@ public:
 
 int main(int argc, char *argv[]){
     QCoreApplication app(argc, argv);
-    DatabaseManager db("Project1.db");
+    string mode = "";
 
-    map<int, vector<User>> users, luser;
-    User::loadUsers(db, users);
-    User::saveUsersToFile("User.dat", users);
-    User::loadUsersFromFile("User.dat", luser);
+    QString source_db = "sourceDB.db";
+    QString target_db = "targetDB.db";
 
-    map<int, vector<Group>> groups, lgroup;
-    Group::loadGroups(db, groups);
-    Group::saveGroupsToFile("Group.dat", groups);
-    Group::loadGroupsFromFile("Group.dat", lgroup);
+    string user_file = "User.dat";
+    string group_file = "Group.dat";
+    string DetailPersonalInfo_file = "DetailPersonalInfo.dat";
+    while(1){
+        qDebug() << "Please Enter the mode:";
+        cin >> mode;
+        if (mode == "exporter"|| mode == "Exporter"){
+            DatabaseManager sDB(source_db);
 
-    map<int, vector<DetailPersonalInfo>> DetailPersonalInfo, lDetailPersonalInfo;
-    DetailPersonalInfo::loadDetailPersonalInfo(db, DetailPersonalInfo);
-    DetailPersonalInfo::saveDetailPersonalInfosToFile("DetailPersonalInfo.dat",DetailPersonalInfo);
-    DetailPersonalInfo::loadDetailPersonalInfosFromFile("DetailPersonalInfo.dat",lDetailPersonalInfo);
+            map<int, vector<User>> users;
+            User::loadUsers(sDB, users);
+            User::saveUsersToFile(user_file, users);
+
+            map<int, vector<Group>> groups;
+            Group::loadGroups(sDB, groups);
+            Group::saveGroupsToFile(group_file, groups);
+
+            map<int, vector<DetailPersonalInfo>> DetailPersonalInfo;
+            DetailPersonalInfo::loadDetailPersonalInfo(sDB, DetailPersonalInfo);
+            DetailPersonalInfo::saveDetailPersonalInfosToFile(DetailPersonalInfo_file,DetailPersonalInfo);
+        }
+        else if (mode == "importer" || mode == "Importer"){
+            DatabaseManager tDB(target_db);
+
+            map<int, vector<User>> luser;
+            User::loadUsersFromFile(user_file, luser);
+            User::saveUsersToDatabase(tDB, luser);
+
+            map<int, vector<Group>> lgroup;
+            Group::loadGroupsFromFile(group_file, lgroup);
+            Group::saveGroupsToDatabase(tDB, lgroup);
+
+            map<int, vector<DetailPersonalInfo>> lDetailPersonalInfo;
+            DetailPersonalInfo::loadDetailPersonalInfosFromFile(DetailPersonalInfo_file,lDetailPersonalInfo);
+            DetailPersonalInfo::saveDetailPersonalInfosToDatabase(tDB, lDetailPersonalInfo);
+
+        }
+
+        else{
+            break;
+        }
+    }
+
+
     return 0;
 
 }
