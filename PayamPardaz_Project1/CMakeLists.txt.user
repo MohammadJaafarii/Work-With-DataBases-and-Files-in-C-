@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 12.0.1, 2024-07-12T00:37:04. -->
+<!-- Written by QtCreator 12.0.1, 2024-07-14T02:30:35. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -397,7 +397,8 @@
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">PayamPardaz_Project1</value>
     <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">CMakeProjectManager.CMakeRunConfiguration.PayamPardaz_Project1</value>
     <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">PayamPardaz_Project1</value>
-    <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">false</value>
+    <value type="bool" key="ProjectExplorer.RunConfiguration.Customized">true</value>
+    <value type="QString" key="RunConfiguration.Arguments">importer</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseLibrarySearchPath">true</value>
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>

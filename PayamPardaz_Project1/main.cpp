@@ -5,16 +5,16 @@
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlRecord>
+#include <cstring>
 #include <string>
 #include <QString>
 #include <QCoreApplication>
 #include <QDebug>
 #include <fstream>
-
-using std::cin;
-using std::string;
-using std::map;
-using std::vector;
+#include <algorithm>
+#include <cwchar>
+#include <locale>
+#include <codecvt>
 
 class DatabaseManager {
 private:
@@ -60,59 +60,9 @@ public:
 };
 
 
-class User{
+template <class T> class SaveAndLoadToFile{
 public:
-    int ID;
-    string name;
-    long long IP;
-    string Password;
-    int GroupID;
-
-    User(int ID, string name, long long IP, string Password, int GroupID){
-        try{
-            this->ID = ID;
-            this->name = name;
-            this->IP = IP;
-            this->Password = Password;
-            // GroupId could be NULL
-            //NULL for integers is defined as -1
-            this->GroupID = GroupID;
-
-        }
-
-        catch(...){
-            qDebug() << "Error occured while setting value for User object";
-        }
-
-    }
-
-
-    static map<int, vector<User>>& loadUsers(DatabaseManager& dbManager, map<int, vector<User>>& users) {
-        try{
-            const QString query_command = "SELECT * FROM 'User'";
-            QSqlQuery query = dbManager.executeQuery(query_command);
-            while (query.next()) {
-                int id = query.value(0).toInt();
-                string name = query.value(1).toString().toStdString();
-                long long IP = query.value(2).toLongLong();
-                string password = query.value(3).toString().toStdString();
-                int groupid = query.isNull(4) ? -1 : query.value(4).toInt();
-
-                User user(id, name, IP, password, groupid);
-                users[id].push_back(user);
-            }
-            qDebug() << "Loaded users successfully.";
-            return users;
-        }
-
-        catch(...){
-            qDebug() << "Error Occurred while loading 'User' Data";
-            exit(1);
-        }
-
-    }
-
-    static void saveUsersToFile(const string& fileName, const map<int, vector<User>>& users) {
+    static void saveToFile(const std::string& fileName, std::map<int, T> & infos){
         try {
             std::ofstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
@@ -120,20 +70,9 @@ public:
                 return;
             }
 
-            for (const auto& pair : users) {
-                int id = pair.first;
-                const vector<User>& userList = pair.second;
-                for (const User& user : userList) {
-                    file.write(reinterpret_cast<const char*>(&id), sizeof(id));
-                    int nameSize = user.name.size();
-                    file.write(reinterpret_cast<const char*>(&nameSize), sizeof(nameSize));
-                    file.write(user.name.c_str(), nameSize);
-                    file.write(reinterpret_cast<const char*>(&user.IP), sizeof(user.IP));
-                    int passwordSize = user.Password.size();
-                    file.write(reinterpret_cast<const char*>(&passwordSize), sizeof(passwordSize));
-                    file.write(user.Password.c_str(), passwordSize);
-                    file.write(reinterpret_cast<const char*>(&user.GroupID), sizeof(user.GroupID));
-                }
+            for(auto [_, info] : infos)
+            {
+                file.write(reinterpret_cast<const char*>(&info), sizeof(info));
             }
 
             qDebug() << "Users saved to file" << QString::fromStdString(fileName) << "successfully." ;
@@ -144,7 +83,7 @@ public:
         }
     }
 
-    static void loadUsersFromFile(const string& fileName, map<int, vector<User>>& users) {
+    static void loadFromFile(const std::string& fileName, std::map<int, T> & infos){
         try {
             std::ifstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
@@ -152,29 +91,10 @@ public:
                 return;
             }
 
-            int id;
-            while (file.read(reinterpret_cast<char*>(&id), sizeof(id))) {
+            T info;
+            while (file.read(reinterpret_cast<char*>(&info), sizeof(info))) {
 
-                int nameSize;
-                file.read(reinterpret_cast<char*>(&nameSize), sizeof(nameSize));
-                string name(nameSize, '\0');
-                file.read(&name[0], nameSize);
-
-                long long IP;
-                file.read(reinterpret_cast<char*>(&IP), sizeof(IP));
-
-                int passwordSize;
-                file.read(reinterpret_cast<char*>(&passwordSize), sizeof(passwordSize));
-                string password(passwordSize, '\0');
-                file.read(&password[0], passwordSize);
-
-                int groupid;
-                file.read(reinterpret_cast<char*>(&groupid), sizeof(groupid));
-
-                if (file.eof()) break;  // To handle the last read which can be eof.
-
-                User user(id, name, IP, password, groupid);
-                users[id].push_back(user);
+                infos[info.ID] = info;
             }
 
             file.close();
@@ -184,27 +104,152 @@ public:
             qDebug() << "Error occurred while loading users from file.";
         }
     }
+};
 
-    static void saveUsersToDatabase(DatabaseManager& dbManager, const map<int, vector<User>>& users) {
+
+class User{
+    
+public:
+    int ID;
+    wchar_t  name [101];
+    uint32_t IP;
+    wchar_t  Password[51];
+    int GroupID;
+    
+    User(int ID, wchar_t  name[101], uint32_t IP, wchar_t  Password[51], int GroupID){
+
+        this->ID = ID;
+
+        std::wmemset(this->name, 0, sizeof(this->name) / sizeof(this->name[0]));
+        size_t len_name = std::wcslen(name);
+        std::wcsncpy(this->name, name, len_name);
+        this->name[len_name] = L'\0';
+
+        this->IP = IP;
+
+        std::wmemset(this->Password, 0, sizeof(this->Password) / sizeof(this->Password[0]));
+        size_t len_pass = std::wcslen(Password);
+        std::wcsncpy(this->Password, Password, len_pass);
+        this->name[len_pass] = L'\0';
+
+        // GroupId could be NULL
+        //NULL for integers is defined as -1
+        this->GroupID = GroupID;
+    }
+    User(){
+        
+    }
+    
+    using UserInfo = std::map<int, User>;
+    
+    static UserInfo& loadUsers(DatabaseManager& dbManager, UserInfo& users) {
+        try{
+            const QString query_command = "SELECT * FROM User";
+            QSqlQuery query = dbManager.executeQuery(query_command);
+            while (query.next()) {
+                
+                int id = query.value(0).toInt();
+                
+                std::string name = query.value(1).toString().toStdString();
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+                std::wstring nsource = converter.from_bytes(name);
+                wchar_t name_c[101];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t name_len = nsource.size();
+                std::wcsncpy(name_c, nsource.c_str(), name_len);
+                name_c[name_len] = L'\0';
+                
+                uint32_t IP = static_cast<uint32_t>(query.value(2).toULongLong());
+
+                std::string password = query.value(3).toString().toStdString();
+                std::wstring pass_source = converter.from_bytes(password);
+                wchar_t pass_c[51];
+                //std::wmemset(pass_c, 0, sizeof(pass_c));
+                size_t pass_len = pass_source.size();
+                std::wcsncpy(pass_c, pass_source.c_str(), pass_len);
+                pass_c[pass_len] = L'\0';
+                
+                int groupid = query.isNull(4) ? -1 : query.value(4).toInt();
+                users[id]= User {id, name_c, IP, pass_c, groupid};   
+                    
+                
+                
+            }
+            qDebug() << "Loaded users successfully.";
+            return users;
+        }
+
+        catch(...){
+            qDebug() << "Error Occurred while loading 'User' Data\n";
+            exit(1);
+        }
+
+    }
+    
+    // static void saveUsersToFile(const std::string& fileName, UserInfo& users) {
+    //     try {
+    //         std::ofstream file(fileName, std::ios::binary);
+    //         if (!file.is_open()) {
+    //             qDebug() << "Error opening file for writing:" << QString::fromStdString(fileName);
+    //             return;
+    //         }
+            
+    //         for(auto [_, user] : users)
+    //         {
+    //             file.write(reinterpret_cast<const char*>(&user), sizeof(user));
+    //         }
+            
+    //         qDebug() << "Users saved to file" << QString::fromStdString(fileName) << "successfully." ;
+    //         file.close();
+    //     }
+    //     catch (...) {
+    //         qDebug() << "Error occurred while saving users to file.";
+    //     }
+    // }
+    
+    // static void loadUsersFromFile(const std::string& fileName, UserInfo& users) {
+    //     try {
+    //         std::ifstream file(fileName, std::ios::binary);
+    //         if (!file.is_open()) {
+    //             qDebug() << "Error: Unable to open file for reading" << QString::fromStdString(fileName);
+    //             return;
+    //         }
+            
+    //         User user;
+    //         while (file.read(reinterpret_cast<char*>(&user), sizeof(user))) {
+
+    //             users[user.ID] = user;
+    //         }
+
+    //         file.close();
+    //         qDebug() << "Loaded groups from file:" << QString::fromStdString(fileName);
+    //     }
+    //     catch (...) {
+    //         qDebug() << "Error occurred while loading users from file.";
+    //     }
+    // }
+
+    static void saveUsersToDatabase(DatabaseManager& dbManager, const UserInfo& users) {
         try {
             for (const auto& pair : users) {
                 int id = pair.first;
-                const vector<User>& userList = pair.second;
-                for (const User& user : userList) {
-                    QSqlQuery query;
-                    query.prepare("INSERT INTO 'User' (name, IP, Password, GroupID) VALUES (:name, :IP, :Password, :GroupID)");
-                    query.bindValue(":name", QString::fromStdString(user.name));
-                    query.bindValue(":IP", qlonglong(user.IP));
-                    query.bindValue(":Password", QString::fromStdString(user.Password));
-                    query.bindValue(":GroupID", user.GroupID == -1 ? QVariant(QVariant::Int) : user.GroupID);
-
-                    if (!query.exec()) {
-                        qDebug() << "Error:\nInserting data into User table for UserID:" << user.ID << " - " << query.lastError().text();
-                        continue;
-                    }
-                    QString success_msg = QString("User with UserID '%1' inserted successfully").arg(QString::number(id));
-                    qDebug() << success_msg;
+                const User user = pair.second;
+                
+                QSqlQuery query;
+                query.prepare("INSERT INTO 'User' (name, IP, Password, GroupID) VALUES (:name, :IP, :Password, :GroupID)");
+                query.bindValue(":name", QString::fromWCharArray(user.name));
+                query.bindValue(":IP", qlonglong(user.IP));
+                query.bindValue(":Password", QString::fromWCharArray(user.Password));
+                query.bindValue(":GroupID", user.GroupID == -1 ? QVariant(QVariant::Int) : user.GroupID);
+                
+                if (!query.exec()) {
+                    qDebug() << "Error:\nInserting data into User table for UserID:" << user.ID << " - " << query.lastError().text();
+                    continue;
                 }
+                QString success_msg = QString("User with UserID '%1' inserted successfully").arg(QString::number(id));
+                qDebug() << success_msg;
+
+                
             }
 
         }
@@ -217,14 +262,23 @@ public:
 class Group{
 public:
     int ID;
-    string Name;
-    string Description;
+    wchar_t Name[101];
+    wchar_t Description [1001];
     bool Is_Active;
-    Group(int ID, string Name, bool Is_Active, string Description = nullptr){
+    Group(int ID, wchar_t Name [101], bool Is_Active, wchar_t Description[1001] = nullptr){
         try{
             this->ID = ID;
-            this->Name = Name;
-            this-> Description = Description;
+
+            std::wmemset(this->Name, 0, sizeof(this->Name) / sizeof(this->Name[0]));
+            size_t len_name = std::wcslen(Name);
+            std::wcsncpy(this->Name, Name, len_name);
+            this->Name[len_name] = L'\0';
+
+            std::wmemset(this->Description, 0, sizeof(this->Description) / sizeof(this->Description[0]));
+            size_t len_description = std::wcslen(Description);
+            std::wcsncpy(this->Description, Description, len_description);
+            this->Description[len_description] = L'\0';
+
             this->Is_Active = Is_Active;
         }
         catch(...){
@@ -233,19 +287,40 @@ public:
         }
     }
 
-    static map<int, vector<Group>>& loadGroups(DatabaseManager& dbManager, map<int, vector<Group>>& groups) {
+    Group(){
+
+    }
+
+    using GroupInfo = std::map<int, Group>;
+    static GroupInfo & loadGroups(DatabaseManager& dbManager, GroupInfo & groups) {
 
         try{
             const QString query_command = "SELECT * FROM 'Group'";
             QSqlQuery query = dbManager.executeQuery(query_command);
             while (query.next()) {
                 int id = query.value(0).toInt();
-                string name = query.value(1).toString().toStdString();
-                string description = query.value(2).toString().toStdString();
+
+                std::string name = query.value(1).toString().toStdString();
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+                std::wstring nsource = converter.from_bytes(name);
+                wchar_t name_c[101];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t name_len = nsource.size();
+                std::wcsncpy(name_c, nsource.c_str(), name_len);
+                name_c[name_len] = L'\0';
+
+                std::string description = query.value(2).toString().toStdString();
+                std::wstring descrptn_source = converter.from_bytes(description);
+                wchar_t descrptn_c[1001];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t descrptn_len = descrptn_source.size();
+                std::wcsncpy(descrptn_c, descrptn_source.c_str(), descrptn_len);
+                descrptn_c[descrptn_len] = L'\0';
+
                 bool isActive = query.value(3).toBool();
 
-                Group group(id, name, isActive, description);
-                groups[id].push_back(group);
+
+                groups[id] = Group {id , name_c, isActive, descrptn_c};
             }
             qDebug() << "Loaded groups successfully.";
             return groups;
@@ -260,109 +335,77 @@ public:
 
 
 
-    static void saveGroupsToFile(const string& fileName, const map<int, vector<Group>>& groups ) {
+    // static void saveGroupsToFile(const std::string& fileName, const GroupInfo& groups ) {
 
-        try{
-            std::ofstream file(fileName, std::ios::binary);
-            if (!file.is_open()) {
-                qDebug() << "Error opening file for writing:" << QString::fromStdString(fileName);
-                return;
-            }
+    //     try{
+    //         std::ofstream file(fileName, std::ios::binary);
+    //         if (!file.is_open()) {
+    //             qDebug() << "Error opening file for writing:" << QString::fromStdString(fileName);
+    //             return;
+    //         }
 
-            for (const auto& pair : groups) {
-                int groupID = pair.first;
-                const vector<Group>& groupList = pair.second;
-
-                for (const Group& group : groupList) {
-
-                    file.write(reinterpret_cast<const char*>(&groupID), sizeof(groupID));
-                    int nameSize = group.Name.size();
-                    file.write(reinterpret_cast<const char*>(&nameSize), sizeof(nameSize));
-                    file.write(group.Name.c_str(), nameSize);
-
-                    int descriptionSize = group.Description.size();
-                    file.write(reinterpret_cast<const char*>(&descriptionSize), sizeof(descriptionSize));
-                    if (descriptionSize > 0) {
-                        file.write(group.Description.c_str(), descriptionSize);
-                    }
-
-                    file.write(reinterpret_cast<const char*>(&group.Is_Active), sizeof(group.Is_Active));
-                }
-            }
+    //         for(auto [_, group] : groups)
+    //         {
+    //             file.write(reinterpret_cast<const char*>(&group), sizeof(group));
+    //         }
 
 
-            file.close();
-            qDebug() << "Groups saved to file" << QString::fromStdString(fileName) << "successfully.";
-        }
-        catch (...) {
-            qDebug() << "Error occurred while saving Groups to file.";
-        }
+    //         file.close();
+    //         qDebug() << "Groups saved to file" << QString::fromStdString(fileName) << "successfully.";
+    //     }
+    //     catch (...) {
+    //         qDebug() << "Error occurred while saving Groups to file.";
+    //     }
 
-    }
+    // }
 
-    static void loadGroupsFromFile(const string& filename, map<int, vector<Group>>& groups) {
+    // static void loadGroupsFromFile(const std::string& filename, GroupInfo& groups) {
 
-        try{
-            std::ifstream file(filename, std::ios::binary);
-            if (!file.is_open()) {
-                qDebug() << "Error opening file for reading:" << QString::fromStdString(filename);
-                return;
+    //     try{
+    //         std::ifstream file(filename, std::ios::binary);
+    //         if (!file.is_open()) {
+    //             qDebug() << "Error opening file for reading:" << QString::fromStdString(filename);
+    //             return;
 
-            }
+    //         }
 
 
-            int groupID;
-            while (file.read(reinterpret_cast<char*>(&groupID), sizeof(groupID))) {
+    //         Group group;
+    //         while (file.read(reinterpret_cast<char*>(&group), sizeof(group))) {
 
-                int nameSize;
-                file.read(reinterpret_cast<char*>(&nameSize), sizeof(nameSize));
-                string name(nameSize, '\0');
-                file.read(&name[0], nameSize);
 
-                int descriptionSize;
-                file.read(reinterpret_cast<char*>(&descriptionSize), sizeof(descriptionSize));
-                string description = "";
-                if (descriptionSize > 0) {
-                    description.resize(descriptionSize);
-                    file.read(&description[0], descriptionSize);
-                }
+    //             groups[group.ID] = group;
+    //         }
 
-                bool isActive;
-                file.read(reinterpret_cast<char*>(&isActive), sizeof(isActive));
+    //         file.close();
+    //         qDebug() << "Loaded groups from file:" << QString::fromStdString(filename);
+    //     }
 
-                Group group(groupID, name, isActive, description);
-                groups[groupID].push_back(group);
-            }
+    //     catch (...) {
+    //         qDebug() << "Error occurred while loading Groups from file.";
+    //     }
 
-            file.close();
-            qDebug() << "Loaded groups from file:" << QString::fromStdString(filename);
-        }
+    // }
 
-        catch (...) {
-            qDebug() << "Error occurred while loading Groups from file.";
-        }
-
-    }
-
-    static void saveGroupsToDatabase(DatabaseManager& dbManager, const map<int, vector<Group>>& groups) {
+    static void saveGroupsToDatabase(DatabaseManager& dbManager, const GroupInfo& groups) {
         try{
             for (const auto& pair : groups) {
                 int id = pair.first;
-                const vector<Group>& groupList = pair.second;
-                for (const Group& group : groupList) {
-                    QSqlQuery query;
-                    query.prepare("INSERT INTO 'Group' (name, description, is_active) VALUES (:Name, :Description, :Is_Active);");
-                    query.bindValue(":Name", QString::fromStdString(group.Name));
-                    query.bindValue(":Description", group.Description.empty() ? QVariant(QVariant::String) : QString::fromStdString(group.Description));
-                    query.bindValue(":Is_Active", group.Is_Active ? 1 : 0);
+                const Group group = pair.second;
 
-                    if (!query.exec()) {
-                        qDebug() << "Error inserting data into Group:" << query.lastError().text() << "for group ID:" << QString::number(group.ID);
-                        continue;
-                    } else {
-                        QString success_msg = QString("Group with ID '%1' inserted successfully").arg(id);
-                        qDebug() << success_msg;
-                    }
+                QSqlQuery query;
+                query.prepare("INSERT INTO 'Group' (name, description, is_active) VALUES (:Name, :Description, :Is_Active);");
+                query.bindValue(":Name", QString::fromWCharArray(group.Name));
+                query.bindValue(":Description", std::wcslen(group.Description) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(group.Description));
+                query.bindValue(":Is_Active", group.Is_Active ? 1 : 0);
+
+                if (!query.exec()) {
+                    qDebug() << "Error inserting data into Group:" << query.lastError().text() << "for group ID:" << QString::number(group.ID);
+                    continue;
+                } else {
+                    QString success_msg = QString("Group with ID '%1' inserted successfully").arg(id);
+                    qDebug() << success_msg;
+
                 }
             }
         }
@@ -375,24 +418,50 @@ public:
 
 class DetailPersonalInfo{
 public:
-    int UserID;
-    string FirstName;
-    string LastName;
-    string Office;
-    string Phone;
-    string PersonnelCode;
-    string Address;
+    int ID;
+    wchar_t FirstName [101];
+    wchar_t LastName [101];
+    wchar_t Office [101];
+    wchar_t Phone [21];
+    wchar_t PersonnelCode [11];
+    wchar_t Address[1001];
 
-    DetailPersonalInfo(int UserID, string FirstName = nullptr, string LastName = nullptr, string Office = nullptr, string Phone = nullptr,
-                       string PersonnelCode = nullptr, string Address = nullptr){
+    DetailPersonalInfo(int UserID, wchar_t FirstName [101], wchar_t LastName [101] , wchar_t Office [101],wchar_t Phone[21],
+                       wchar_t PersonnelCode [11], wchar_t Address [1001]){
         try{
-            this->UserID = UserID;
-            this->FirstName = FirstName;
-            this->LastName = LastName;
-            this->Office = Office;
-            this->Phone = Phone;
-            this->PersonnelCode = PersonnelCode;
-            this->Address = Address;
+
+            this->ID = UserID;
+
+            std::wmemset(this->FirstName, 0, sizeof(this->FirstName) / sizeof(this->FirstName[0]));
+            size_t len_fname = std::wcslen(FirstName);
+            std::wcsncpy(this->FirstName, FirstName, len_fname);
+            this->FirstName[len_fname] = L'\0';
+
+            std::wmemset(this->LastName, 0, sizeof(this->LastName) / sizeof(this->LastName[0]));
+            size_t len_lname = std::wcslen(LastName);
+            std::wcsncpy(this->LastName, LastName, len_lname);
+            this->LastName[len_lname] = L'\0';
+
+            std::wmemset(this->Office, 0, sizeof(this->Office) / sizeof(this->Office[0]));
+            size_t len_office = std::wcslen(Office);
+            std::wcsncpy(this->Office, Office, len_office);
+            this->Office[len_office] = L'\0';
+
+            std::wmemset(this->Phone, 0, sizeof(this->Phone) / sizeof(this->Phone[0]));
+            size_t len_phone = std::wcslen(Phone);
+            std::wcsncpy(this->Phone, Phone, len_phone);
+            this->Phone[len_phone] = L'\0';
+
+            std::wmemset(this->PersonnelCode, 0, sizeof(this->PersonnelCode) / sizeof(this->PersonnelCode[0]));
+            size_t len_personnelcode = std::wcslen(PersonnelCode);
+            std::wcsncpy(this->PersonnelCode, PersonnelCode, len_personnelcode);
+            this->PersonnelCode[len_personnelcode] = L'\0';
+
+            std::wmemset(this->Address, 0, sizeof(this->Address) / sizeof(this->Address[0]));
+            size_t len_address = std::wcslen(Address);
+            std::wcsncpy(this->Address, Address, len_address);
+            this->Address[len_address] = L'\0';
+
         }
 
         catch(...){
@@ -402,23 +471,73 @@ public:
         }
     }
 
-    static map<int, vector<DetailPersonalInfo>> loadDetailPersonalInfo(DatabaseManager& dbManager,
-                                                                            map<int, vector<DetailPersonalInfo>>& details) {
+
+    DetailPersonalInfo(){
+
+    }
+
+    using DetailInfo = std::map<int, DetailPersonalInfo>;
+
+    static DetailInfo loadDetailPersonalInfo(DatabaseManager& dbManager,
+                                             DetailInfo& details) {
 
         try{
             const QString query_command = "SELECT * FROM 'DetailPersonalInfo'";
             QSqlQuery query = dbManager.executeQuery(query_command);
             while (query.next()) {
                 int userID = query.value(0).toInt();
-                string firstName = query.value(1).toString().toStdString();
-                string lastName = query.value(2).toString().toStdString();
-                string office = query.value(3).toString().toStdString();
-                string phone = query.value(4).toString().toStdString();
-                string personnelCode = query.value(5).toString().toStdString();
-                string address = query.value(6).toString().toStdString();
 
-                DetailPersonalInfo detail(userID, firstName, lastName, office, phone, personnelCode, address);
-                details[userID].push_back(detail);
+                std::string firstName = query.value(1).toString().toStdString();
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+                std::wstring fnsource = converter.from_bytes(firstName);
+                wchar_t firstName_c[101];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t fname_len = fnsource.size();
+                std::wcsncpy(firstName_c, fnsource.c_str(), fname_len);
+                firstName_c[fname_len] = L'\0';
+
+                std::string lastName = query.value(2).toString().toStdString();
+                std::wstring lnsource = converter.from_bytes(lastName);
+                wchar_t lastName_c[101];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t lname_len = lnsource.size();
+                std::wcsncpy(lastName_c, lnsource.c_str(), lname_len);
+                lastName_c[lname_len] = L'\0';
+
+                std::string office = query.value(3).toString().toStdString();
+                std::wstring office_source = converter.from_bytes(office);
+                wchar_t office_c[101];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t office_len = office_source.size();
+                std::wcsncpy(office_c, office_source.c_str(), office_len);
+                office_c[office_len] = L'\0';
+
+                std::string phone = query.value(4).toString().toStdString();
+                std::wstring phone_source = converter.from_bytes(phone);
+                wchar_t phone_c[21];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t phone_len = phone_source.size();
+                std::wcsncpy(phone_c, phone_source.c_str(), phone_len);
+                phone_c[phone_len] = L'\0';
+
+                std::string personnelCode = query.value(5).toString().toStdString();
+                std::wstring personnelCode_source = converter.from_bytes(personnelCode);
+                wchar_t personnelCode_c[11];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t pc_len = personnelCode_source.size();
+                std::wcsncpy(personnelCode_c, personnelCode_source.c_str(), pc_len);
+                personnelCode_c[pc_len] = L'\0';
+
+                std::string address = query.value(6).toString().toStdString();
+                std::wstring address_source = converter.from_bytes(address);
+                wchar_t address_c[1001];
+                //std::wmemset(name_c, 0, sizeof(name_c));
+                size_t address_len = address_source.size();
+                std::wcsncpy(address_c, address_source.c_str(), address_len);
+                address_c[address_len] = L'\0';
+
+
+                details[userID] = (DetailPersonalInfo {userID, firstName_c, lastName_c, office_c, phone_c, personnelCode_c, address_c});
             }
             qDebug() << "Loaded DetailPersonalInfos successfully.";
             return details;
@@ -431,170 +550,79 @@ public:
 
     }
 
-    static void saveDetailPersonalInfosToFile(const string& fileName, const map<int, vector<DetailPersonalInfo>>& details) {
-        try {
-            std::ofstream file(fileName, std::ios::binary);
-            if (!file.is_open()) {
-                qDebug() << "Error opening file for writing:" << QString::fromStdString(fileName);
-                return;
-            }
+    // static void saveDetailPersonalInfosToFile(const std::string& fileName, DetailInfo& details) {
+    //     try {
+    //         std::ofstream file(fileName, std::ios::binary);
+    //         if (!file.is_open()) {
+    //             qDebug() << "Error opening file for writing:" << QString::fromStdString(fileName);
+    //             return;
+    //         }
 
-            for (const auto& pair : details) {
-                int userID = pair.first;
-                const vector<DetailPersonalInfo>& detailList = pair.second;
+    //         for(auto [_, detail] : details)
+    //         {
+    //             file.write(reinterpret_cast<const char*>(&detail), sizeof(detail));
+    //         }
 
-                for (const DetailPersonalInfo& detail : detailList) {
-                    file.write(reinterpret_cast<const char*>(&userID), sizeof(userID));
+    //         file.close();
+    //         qDebug() << "DetailPersonalInfos saved to file" << QString::fromStdString(fileName) << "successfully.";
+    //     } catch (...) {
+    //         qDebug() << "Error occurred while saving DetailPersonalInfos to file.";
+    //     }
+    // }
 
-                    int firstNameSize = detail.FirstName.size();
-                    file.write(reinterpret_cast<const char*>(&firstNameSize), sizeof(firstNameSize));
-                    if (firstNameSize > 0){
-                        file.write(detail.FirstName.c_str(), firstNameSize);
-                    }
-
-                    int lastNameSize = detail.LastName.size();
-                    file.write(reinterpret_cast<const char*>(&lastNameSize), sizeof(lastNameSize));
-                    if (lastNameSize > 0){
-                        file.write(detail.LastName.c_str(), lastNameSize);
-                    }
-
-                    int officeSize = detail.Office.size();
-                    file.write(reinterpret_cast<const char*>(&officeSize), sizeof(officeSize));
-                    if (officeSize > 0){
-                        file.write(detail.Office.c_str(), officeSize);
-                    }
-
-                    int phoneSize = detail.Phone.size();
-                    file.write(reinterpret_cast<const char*>(&phoneSize), sizeof(phoneSize));
-                    if (phoneSize > 0){
-                        file.write(detail.Phone.c_str(), phoneSize);
-
-                    }
-
-                    int personnelCodeSize = detail.PersonnelCode.size();
-                    file.write(reinterpret_cast<const char*>(&personnelCodeSize), sizeof(personnelCodeSize));
-
-                    if (personnelCodeSize > 0){
-                        file.write(detail.PersonnelCode.c_str(), personnelCodeSize);
-                    }
-
-                    int addressSize = detail.Address.size();
-                    file.write(reinterpret_cast<const char*>(&addressSize), sizeof(addressSize));
-                    if (addressSize > 0){
-                        file.write(detail.Address.c_str(), addressSize);
-                    }
-                }
-            }
-
-            file.close();
-            qDebug() << "DetailPersonalInfos saved to file" << QString::fromStdString(fileName) << "successfully.";
-        } catch (...) {
-            qDebug() << "Error occurred while saving DetailPersonalInfos to file.";
-        }
-    }
-
-    static map<int, vector<DetailPersonalInfo>>& loadDetailPersonalInfosFromFile(const string& filename,
-                                                             map<int, vector<DetailPersonalInfo>>& details) {
-        try {
-            std::ifstream file(filename, std::ios::binary);
-            if (!file.is_open()) {
-                qDebug() << "Error opening file for reading:" << QString::fromStdString(filename);
-                return details;
-            }
+    // static void loadDetailPersonalInfosFromFile(const std::string& filename,
+    //                                             DetailInfo& details) {
+    //     try {
+    //         std::ifstream file(filename, std::ios::binary);
+    //         if (!file.is_open()) {
+    //             qDebug() << "Error opening file for reading:" << QString::fromStdString(filename);
+    //             return;
+    //         }
 
 
-            int userID;
-            while (file.read(reinterpret_cast<char*>(&userID), sizeof(userID))) {
+    //         DetailPersonalInfo detail;
+    //         while (file.read(reinterpret_cast<char*>(&detail), sizeof(detail))) {
 
 
-                int firstNameSize;
-                file.read(reinterpret_cast<char*>(&firstNameSize), sizeof(firstNameSize));
-                string firstName = "";
-                if (firstNameSize > 0) {
-                    firstName.resize(firstNameSize);
-                    file.read(&firstName[0], firstNameSize);
-                }
+    //             details[detail.ID] = detail;
+    //         }
 
-                int lastNameSize;
-                file.read(reinterpret_cast<char*>(&lastNameSize), sizeof(lastNameSize));
-                string lastName = "";
-                if (lastNameSize > 0) {
-                    lastName.resize(lastNameSize);
-                    file.read(&lastName[0], lastNameSize);
-                }
+    //         file.close();
+    //         qDebug() << "Loaded DetailPersonalInfos from file:" << QString::fromStdString(filename);
+    //     } catch (...) {
+    //         qDebug() << "Error occurred while loading DetailPersonalInfos from file.";
+    //     }
 
-                int officeSize;
-                file.read(reinterpret_cast<char*>(&officeSize), sizeof(officeSize));
-                string office = "";
-                if (officeSize > 0) {
-                    office.resize(officeSize);
-                    file.read(&office[0], officeSize);
-                }
 
-                int phoneSize;
-                file.read(reinterpret_cast<char*>(&phoneSize), sizeof(phoneSize));
-                string phone = "";
-                if (phoneSize > 0) {
-                    phone.resize(phoneSize);
-                    file.read(&phone[0], phoneSize);
-                }
+    // }
 
-                int personnelCodeSize;
-                file.read(reinterpret_cast<char*>(&personnelCodeSize), sizeof(personnelCodeSize));
-                string personnelCode = "";
-                if (personnelCodeSize > 0) {
-                    personnelCode.resize(personnelCodeSize);
-                    file.read(&personnelCode[0], personnelCodeSize);
-                }
-
-                int addressSize;
-                file.read(reinterpret_cast<char*>(&addressSize), sizeof(addressSize));
-                string address = "";
-                if (addressSize > 0) {
-                    address.resize(addressSize);
-                    file.read(&address[0], addressSize);
-                }
-
-                DetailPersonalInfo detail(userID, firstName, lastName, office, phone, personnelCode, address);
-                details[userID].push_back(detail);
-            }
-
-            file.close();
-            qDebug() << "Loaded DetailPersonalInfos from file:" << QString::fromStdString(filename);
-        } catch (...) {
-            qDebug() << "Error occurred while loading DetailPersonalInfos from file.";
-        }
-
-        return details;
-    }
-
-    static void saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const map<int, vector<DetailPersonalInfo>>& details) {
+    static void saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const DetailInfo& details) {
 
         try{
             for (const auto& pair : details) {
                 int userID = pair.first;
-                const std::vector<DetailPersonalInfo>& detailList = pair.second;
-                for (const DetailPersonalInfo& detail : detailList) {
-                    QSqlQuery query;
-                    query.prepare("INSERT INTO 'DetailPersonalInfo' (userid, firstname, lastname, office, phone, personnelcode, address) "
-                                  "VALUES (:UserID, :FirstName, :LastName, :Office, :Phone, :PersonnelCode, :Address)");
+                const DetailPersonalInfo& detail = pair.second;
 
-                    query.bindValue(":UserID", detail.UserID);
-                    query.bindValue(":FirstName", detail.FirstName.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.FirstName));
-                    query.bindValue(":LastName", detail.LastName.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.LastName));
-                    query.bindValue(":Office", detail.Office.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.Office));
-                    query.bindValue(":Phone", detail.Phone.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.Phone));
-                    query.bindValue(":PersonnelCode", detail.PersonnelCode.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.PersonnelCode));
-                    query.bindValue(":Address", detail.Address.empty() ? QVariant(QVariant::String) : QString::fromStdString(detail.Address));
+                QSqlQuery query;
+                query.prepare("INSERT INTO 'DetailPersonalInfo' (userid, firstname, lastname, office, phone, personnelcode, address) "
+                              "VALUES (:UserID, :FirstName, :LastName, :Office, :Phone, :PersonnelCode, :Address)");
 
-                    if (!query.exec()) {
-                        qDebug() << "Error inserting data into DetailPersonalInfo:" << query.lastError().text() << "for UserID:" << userID;
-                        continue;
-                    } else {
-                        QString success_msg = QString("DetailPersonalInfo with UserID '%1' inserted successfully").arg(detail.UserID);
-                        qDebug() << success_msg;
-                    }
+                query.bindValue(":UserID", detail.ID);
+                query.bindValue(":FirstName", std::wcslen(detail.FirstName) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.FirstName));
+                query.bindValue(":LastName", std::wcslen(detail.LastName) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.LastName));
+                query.bindValue(":Office", std::wcslen(detail.Office) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.Office));
+                query.bindValue(":Phone", std::wcslen(detail.Phone) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.Phone));
+                query.bindValue(":PersonnelCode", std::wcslen(detail.PersonnelCode) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.PersonnelCode));
+                query.bindValue(":Address", std::wcslen(detail.Address) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.Address));
+
+                if (!query.exec()) {
+                    qDebug() << "Error inserting data into DetailPersonalInfo:" << query.lastError().text() << "for UserID:" << userID;
+                    continue;
+                } else {
+                    QString success_msg = QString("DetailPersonalInfo with UserID '%1' inserted successfully").arg(detail.ID);
+                    qDebug() << success_msg;
                 }
+
             }
         }
         catch (...) {
@@ -612,45 +640,53 @@ public:
 
 int main(int argc, char *argv[]){
     QCoreApplication app(argc, argv);
-    string mode = "";
+
+    std::locale::global(std::locale(""));
+
+
+    std::string mode = "";
 
     QString source_db = "sourceDB.db";
     QString target_db = "targetDB.db";
 
-    string user_file = "User.dat";
-    string group_file = "Group.dat";
-    string DetailPersonalInfo_file = "DetailPersonalInfo.dat";
+    std::string user_file = "User.dat";
+    std::string group_file = "Group.dat";
+    std::string DetailPersonalInfo_file = "DetailPersonalInfo.dat";
     while(1){
         qDebug() << "Please Enter the mode:";
-        cin >> mode;
+        std::cin >> mode;
         if (mode == "exporter"|| mode == "Exporter"){
             DatabaseManager sDB(source_db);
 
-            map<int, vector<User>> users;
+            std::map<int, User> users;
             User::loadUsers(sDB, users);
-            User::saveUsersToFile(user_file, users);
+            //User::saveUsersToFile(user_file, users);
+            SaveAndLoadToFile<User>::saveToFile(user_file, users);
 
-            map<int, vector<Group>> groups;
+            std::map<int, Group> groups;
             Group::loadGroups(sDB, groups);
-            Group::saveGroupsToFile(group_file, groups);
+            //Group::saveGroupsToFile(group_file, groups);
+            SaveAndLoadToFile<Group>::saveToFile(group_file, groups);
 
-            map<int, vector<DetailPersonalInfo>> DetailPersonalInfo;
-            DetailPersonalInfo::loadDetailPersonalInfo(sDB, DetailPersonalInfo);
-            DetailPersonalInfo::saveDetailPersonalInfosToFile(DetailPersonalInfo_file,DetailPersonalInfo);
+            std::map<int, DetailPersonalInfo> DetailPersonalInfol;
+            DetailPersonalInfo::loadDetailPersonalInfo(sDB, DetailPersonalInfol);
+            //DetailPersonalInfo::saveDetailPersonalInfosToFile(DetailPersonalInfo_file,DetailPersonalInfol);
+            SaveAndLoadToFile<DetailPersonalInfo>::saveToFile(DetailPersonalInfo_file, DetailPersonalInfol);
+
         }
         else if (mode == "importer" || mode == "Importer"){
             DatabaseManager tDB(target_db);
 
-            map<int, vector<User>> luser;
-            User::loadUsersFromFile(user_file, luser);
+            std::map<int, User> luser;
+            SaveAndLoadToFile<User>::loadFromFile(user_file, luser);
             User::saveUsersToDatabase(tDB, luser);
 
-            map<int, vector<Group>> lgroup;
-            Group::loadGroupsFromFile(group_file, lgroup);
+            std::map<int, Group> lgroup;
+            SaveAndLoadToFile<Group>::loadFromFile(group_file, lgroup);
             Group::saveGroupsToDatabase(tDB, lgroup);
 
-            map<int, vector<DetailPersonalInfo>> lDetailPersonalInfo;
-            DetailPersonalInfo::loadDetailPersonalInfosFromFile(DetailPersonalInfo_file,lDetailPersonalInfo);
+            std::map<int, DetailPersonalInfo> lDetailPersonalInfo;
+            SaveAndLoadToFile<DetailPersonalInfo>::loadFromFile(DetailPersonalInfo_file, lDetailPersonalInfo);
             DetailPersonalInfo::saveDetailPersonalInfosToDatabase(tDB, lDetailPersonalInfo);
 
         }
