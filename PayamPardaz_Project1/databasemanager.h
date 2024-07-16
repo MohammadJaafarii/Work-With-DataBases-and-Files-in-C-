@@ -5,18 +5,17 @@
 #include <QDebug>
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlQuery>
+#include "logger.h"
+
 
 class DatabaseManager
 {
-
-public:
-    DatabaseManager();
-
 private:
+    Logger logger;
     QSqlDatabase db;
 
 public:
-    DatabaseManager(const QString& dbName);
+    DatabaseManager(const QString& dbName, Logger& logger);
     QSqlQuery executeQuery(const QString& queryString);
     ~DatabaseManager();
 };

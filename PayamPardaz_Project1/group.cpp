@@ -10,6 +10,7 @@ Group::Group(int ID, wchar_t Name [101], bool Is_Active, wchar_t Description[100
     try{
         this->ID = ID;
 
+
         std::wmemset(this->Name, 0, sizeof(this->Name) / sizeof(this->Name[0]));
         size_t len_name = std::wcslen(Name);
         std::wcsncpy(this->Name, Name, len_name);
@@ -29,9 +30,12 @@ Group::Group(int ID, wchar_t Name [101], bool Is_Active, wchar_t Description[100
 }
 
 using GroupInfo = std::map<int, Group>;
-GroupInfo & Group::loadGroups(DatabaseManager& dbManager, GroupInfo & groups) {
+GroupInfo & Group::loadGroups(DatabaseManager& dbManager, GroupInfo & groups, Logger& logger) {
 
     try{
+
+        logger.info("______________________________Group (loadGroups function)______________________________");
+
         const QString query_command = "SELECT * FROM 'Group'";
         QSqlQuery query = dbManager.executeQuery(query_command);
         while (query.next()) {
@@ -59,20 +63,23 @@ GroupInfo & Group::loadGroups(DatabaseManager& dbManager, GroupInfo & groups) {
 
             groups[id] = Group {id , name_c, isActive, descrptn_c};
         }
-        qDebug() << "Loaded groups successfully.";
+        logger.info("Groups loaded successfully from Database!");
         return groups;
     }
 
     catch(...){
-        qDebug() << "Error Occurred while loading 'Group' Data";
+        logger.error("Error Occurred while loading 'Group' Data");
         exit(1);
     }
 
 }
 
 
-void Group::saveGroupsToDatabase(DatabaseManager& dbManager, const GroupInfo& groups, std::map<int, User>& userInfo) {
+void Group::saveGroupsToDatabase(DatabaseManager& dbManager, const GroupInfo& groups, std::unordered_map<int, int>& update_keys, Logger& logger) {
     try{
+        logger.info("______________________________Group (saveGroupsToDatabase function)______________________________");
+        int success = 0,
+            failed = 0;
         for (const auto& pair : groups) {
             int id = pair.first;
             const Group group = pair.second;
@@ -84,42 +91,25 @@ void Group::saveGroupsToDatabase(DatabaseManager& dbManager, const GroupInfo& gr
             query.bindValue(":Is_Active", group.Is_Active ? 1 : 0);
 
             if (!query.exec()) {
-                qDebug() << "Error inserting data into Group:" << query.lastError().text() << "for group ID:" << QString::number(group.ID);
+                logger.warn("Error inserting data into Group: " + query.lastError().text() + " for group ID: " + QString::number(group.ID));
+                failed ++;
                 continue;
             }
             else {
-                // Retrieve the last inserted ID
                 QVariant lastId = query.lastInsertId();
                 if (lastId.isValid()) {
                     int new_id;
                     new_id = lastId.toInt();
-                    auto it = userInfo.find(id);
-                    if (it != userInfo.end()) {
-                        // Get the user associated with oldKey
-                        User user = it->second;
-
-                        // Erase the oldKey from the map
-                        userInfo.erase(it);
-
-                        // Insert user with the newKey into the map
-                        userInfo[new_id] = user;
-
-                        // Update the user's ID to be the newKey
-                        user.ID = new_id;
-
-                        // Print success message
-                        std::cout << "User with ID " << id << " updated to ID " << new_id << std::endl;
-                    } else {
-                        std::cerr << "Key " << id << " not found in map!" << std::endl;
-                    }
+                    update_keys[id] = new_id;
                 }
-                QString success_msg = QString("Group with ID '%1' inserted successfully").arg(id);
-                qDebug() << success_msg;
+                success ++;
             }
         }
+
+        logger.info(QString::number(success) + " Items inserted successfully and " + QString::number(failed) + " Items are failed to be inserted!");
     }
     catch (...) {
-        qDebug() << "Error occurred while saving groups to database.";
+        logger.error("Error occurred while saving groups to database.");
     }
 
 }

@@ -2,6 +2,7 @@
 #define DETAILPERSONALINFO_H
 #include <map>
 #include "databasemanager.h"
+#include "logger.h"
 
 class DetailPersonalInfo
 {
@@ -20,8 +21,8 @@ public:
 
     using DetailInfo = std::map<int, DetailPersonalInfo>;
 
-    static DetailInfo loadDetailPersonalInfo(DatabaseManager& dbManager,DetailInfo& details);
-    static void saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const DetailInfo& details);
+    static DetailInfo loadDetailPersonalInfo(DatabaseManager& dbManager,DetailInfo& details, Logger& logger);
+    static void saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const DetailInfo& details, Logger& logger);
 
 
 };

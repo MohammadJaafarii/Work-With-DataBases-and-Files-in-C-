@@ -55,9 +55,11 @@ DetailPersonalInfo::    DetailPersonalInfo(int UserID, wchar_t FirstName [101], 
 using DetailInfo = std::map<int, DetailPersonalInfo>;
 
 DetailInfo DetailPersonalInfo::loadDetailPersonalInfo(DatabaseManager& dbManager,
-                                         DetailInfo& details) {
+                                         DetailInfo& details, Logger& logger) {
 
     try{
+        logger.info("______________________________DetailPersonalInfo (loadDetailPersonalInfo function)______________________________");
+
         const QString query_command = "SELECT * FROM 'DetailPersonalInfo'";
         QSqlQuery query = dbManager.executeQuery(query_command);
         while (query.next()) {
@@ -115,20 +117,24 @@ DetailInfo DetailPersonalInfo::loadDetailPersonalInfo(DatabaseManager& dbManager
 
             details[userID] = (DetailPersonalInfo {userID, firstName_c, lastName_c, office_c, phone_c, personnelCode_c, address_c});
         }
-        qDebug() << "Loaded DetailPersonalInfos successfully.";
+        logger.info("DetailPersonalInfos are Loaded successfully from Database!");
         return details;
     }
 
     catch(...){
-        qDebug() << "Error Occurred while loading 'DetailPersonalInfo' Data";
+        logger.error("Error Occurred while loading 'DetailPersonalInfo' Data from Database");
         exit(1);
     }
 
 }
 
-void DetailPersonalInfo::saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const DetailInfo& details) {
+void DetailPersonalInfo::saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const DetailInfo& details, Logger& logger) {
 
     try{
+        int success = 0,
+            failed = 0;
+        logger.info("______________________________DetailPersonalInfo (saveDetailPersonalInfosToDatabase function)______________________________");
+
         for (const auto& pair : details) {
             int userID = pair.first;
             const DetailPersonalInfo& detail = pair.second;
@@ -146,17 +152,19 @@ void DetailPersonalInfo::saveDetailPersonalInfosToDatabase(DatabaseManager& dbMa
             query.bindValue(":Address", std::wcslen(detail.Address) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.Address));
 
             if (!query.exec()) {
-                qDebug() << "Error inserting data into DetailPersonalInfo:" << query.lastError().text() << "for UserID:" << userID;
+                logger.warn("Error inserting data into DetailPersonalInfo: " + query.lastError().text() + " for UserID: " + QString::number(userID));
+                failed ++;
                 continue;
             } else {
-                QString success_msg = QString("DetailPersonalInfo with UserID '%1' inserted successfully").arg(detail.ID);
-                qDebug() << success_msg;
+                success ++;
+
             }
 
         }
+        logger.info(QString::number(success) + " Items are inserted successfuly and " + QString::number(failed) + " Items failed to be inserted!");
     }
     catch (...) {
-        qDebug() << "Error occurred while saving DetailPersonalInfos to database.";
+        logger.error("Error occurred while saving DetailPersonalInfos to database.");
     }
 
 }

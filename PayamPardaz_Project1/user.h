@@ -1,8 +1,11 @@
 #ifndef USER_H
 #define USER_H
 #include <iostream>
+#include <unordered_map>
 #include "databasemanager.h"
 #include "detailpersonalinfo.h"
+#include "logger.h"
+
 class User
 {
 public:
@@ -15,9 +18,9 @@ public:
     User();
     using UserInfo = std::map<int, User>;
 
-    static UserInfo& loadUsers(DatabaseManager& dbManager, UserInfo& users);
-    static void saveUsersToDatabase(DatabaseManager& dbManager, const UserInfo& users,
-                                    std::map<int, DetailPersonalInfo>& PersonalInfo);
+    static UserInfo& loadUsers(DatabaseManager& dbManager, UserInfo& users, Logger& logger);
+    static void saveUsersToDatabase(DatabaseManager& dbManager, UserInfo& users,
+                                    std::map<int, DetailPersonalInfo>& PersonalInfo, std::unordered_map<int, int>& update_keys, Logger& logger);
 
 };
 

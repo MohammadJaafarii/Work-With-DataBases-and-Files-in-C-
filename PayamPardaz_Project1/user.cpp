@@ -2,6 +2,10 @@
 #include <cwchar>
 #include <locale>
 #include <codecvt>
+#include "validation.h"
+#include "databasemanager.h"
+#include "user.h"
+
 using UserInfo = std::map<int, User>;
 
 User::User() {}
@@ -26,8 +30,10 @@ User::User(int ID, wchar_t  name[101], uint32_t IP, wchar_t  Password[51], int G
     this->GroupID = GroupID;
 }
 
-UserInfo& User::loadUsers(DatabaseManager& dbManager, UserInfo& users){
+UserInfo& User::loadUsers(DatabaseManager& dbManager, UserInfo& users, Logger& logger){
     try{
+        logger.info("______________________________User (loadUsers function)______________________________");
+
         const QString query_command = "SELECT * FROM User";
         QSqlQuery query = dbManager.executeQuery(query_command);
         while (query.next()) {
@@ -44,7 +50,9 @@ UserInfo& User::loadUsers(DatabaseManager& dbManager, UserInfo& users){
             name_c[name_len] = L'\0';
 
             uint32_t IP = static_cast<uint32_t>(query.value(2).toULongLong());
-
+            if (!Validation::isValidIP(IP)){
+                logger.warn("Warning:\nIp: " + QString::number(IP) + " is not valid");
+            }
             std::string password = query.value(3).toString().toStdString();
             std::wstring pass_source = converter.from_bytes(password);
             wchar_t pass_c[51];
@@ -59,23 +67,32 @@ UserInfo& User::loadUsers(DatabaseManager& dbManager, UserInfo& users){
 
 
         }
-        qDebug() << "Loaded users successfully.";
+        logger.info("Users loaded successfully from Database!");
         return users;
     }
 
     catch(...){
-        qDebug() << "Error Occurred while loading 'User' Data\n";
+        logger.error("Error Occurred while loading 'User' Data");
         exit(1);
     }
 }
 
-void User::saveUsersToDatabase(DatabaseManager& dbManager, const UserInfo& users,
-                                std::map<int, DetailPersonalInfo>& PersonalInfo) {
+void User::saveUsersToDatabase(DatabaseManager& dbManager, UserInfo& users,
+                                std::map<int, DetailPersonalInfo>& PersonalInfo, std::unordered_map<int, int>& update_keys, Logger& logger) {
     try {
+
+        logger.info("______________________________User (saveUsersToDatabase function)______________________________");
+        int success = 0,
+            failed = 0;
+
         for (const auto& pair : users) {
             int id = pair.first;
-            const User user = pair.second;
+            User user = pair.second;
+            auto it = update_keys.find(user.GroupID);
 
+            if (it != update_keys.end()) {
+                user.GroupID = it->second;
+            }
             QSqlQuery query;
             query.prepare("INSERT INTO 'User' (name, IP, Password, GroupID) VALUES (:name, :IP, :Password, :GroupID)");
             query.bindValue(":name", QString::fromWCharArray(user.name));
@@ -84,11 +101,13 @@ void User::saveUsersToDatabase(DatabaseManager& dbManager, const UserInfo& users
             query.bindValue(":GroupID", user.GroupID == -1 ? QVariant(QVariant::Int) : user.GroupID);
 
             if (!query.exec()) {
-                qDebug() << "Error:\nInserting data into User table for UserID:" << user.ID << " - " << query.lastError().text();
+                logger.warn("Error Inserting data into User table for UserID:" + QString::number(user.ID) + " - " + query.lastError().text());
+                failed ++;
                 continue;
             }
             else{
-                // Retrieve the last inserted ID
+
+                // Retrieve the last inserted ID for update userID
                 QVariant lastId = query.lastInsertId();
                 if (lastId.isValid()) {
                     int new_id;
@@ -98,33 +117,30 @@ void User::saveUsersToDatabase(DatabaseManager& dbManager, const UserInfo& users
                         // Get the user associated with oldKey
                         DetailPersonalInfo &user = it->second;
 
-                        // Erase the oldKey from the map
 
                         // Insert user with the newKey into the map
                         PersonalInfo[new_id] = user;
 
                         // Update the user's ID to be the newKey
                         user.ID = new_id;
+
+                        // Erase the oldKey from the map
                         PersonalInfo.erase(it);
 
                         // Print success message
-                        std::cout << "User ID at Personal information of User with ID " << id << " updated to ID " << new_id << std::endl;
-                    } else {
-                        std::cerr << "Key " << id << " not found in map!" << std::endl;
                     }
                 }
-                QString success_msg = QString("Group with ID '%1' inserted successfully").arg(id);
-                qDebug() << success_msg;
+
+
+                success ++;
             }
-            QString success_msg = QString("User with UserID '%1' inserted successfully").arg(QString::number(id));
-            qDebug() << success_msg;
-
-
         }
+
+        logger.info(QString::number(success) + " Items inserted successfully and " + QString::number(failed) + " Items are failed to be inserted!");
 
     }
     catch (...) {
-        qDebug() << "Error occurred while saving users to database.";
+        logger.error("Error occurred while saving users to database.");
     }
 }
 

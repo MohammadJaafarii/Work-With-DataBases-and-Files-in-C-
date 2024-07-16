@@ -2,8 +2,11 @@
 #define GROUP_H
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include "databasemanager.h"
 #include "user.h"
+#include "logger.h"
+
 class Group
 {
 public:
@@ -16,8 +19,8 @@ public:
     Group();
 
     using GroupInfo = std::map<int, Group>;
-    static GroupInfo & loadGroups(DatabaseManager& dbManager, GroupInfo & groups);
-    static void saveGroupsToDatabase(DatabaseManager& dbManager, const GroupInfo& groups, std::map<int, User>& userInfo);
+    static GroupInfo & loadGroups(DatabaseManager& dbManager, GroupInfo & groups, Logger& logger);
+    static void saveGroupsToDatabase(DatabaseManager& dbManager, const GroupInfo& groups, std::unordered_map<int, int>& update_keys, Logger& logger);
 
 };
 

@@ -1,19 +1,22 @@
 #include "databasemanager.h"
 
-DatabaseManager::DatabaseManager(const QString& dbName) {
+DatabaseManager::DatabaseManager(const QString& dbName, Logger& logger) {
     try{
+
+        this->logger = logger;
+        this->logger.info("______________________________DataBase Manager (constructor function)______________________________");
         db = QSqlDatabase::addDatabase("QSQLITE");
         db.setDatabaseName(dbName);
 
         if (!db.open()) {
-            qDebug() << "Error: Failed to connect to Database:" << db.lastError().text();
+            this->logger.error("Error: Failed to connect to Database:" + db.lastError().text());
             exit(1);
         } else {
-            qDebug() << "Connected to database successfully!";
+            this->logger.info("Connected to database successfully!");
         }
     }
     catch(...){
-        qDebug() << "Error occured while connecting to Database!";
+        this->logger.error("Error occured while connecting to Database!");
 
     }
 }
@@ -21,11 +24,12 @@ DatabaseManager::DatabaseManager(const QString& dbName) {
 QSqlQuery DatabaseManager:: executeQuery(const QString& queryString){
     QSqlQuery query(db);
     try {
+
         if (!query.exec(queryString)) {
-            qDebug() << "Error executing query:" << query.lastError().text();
+            this->logger.error("Error executing query:" + query.lastError().text());
         }
     } catch (...) {
-        qDebug() << "Error occurred while executing query!";
+        this->logger.error("Error occurred while executing query!");
     }
     return query;
 }

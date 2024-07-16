@@ -5,38 +5,39 @@
 #include <cwchar>
 #include <locale>
 #include <codecvt>
-#include <fstream> // Ensure fstream is included
+#include <fstream>
 #include <iostream>
+#include "logger.h"
 
 template <class T>
 class SaveAndLoadToFile
 {
 public:
 
-    static void saveToFile(const std::string& fileName, std::map<int, T> & infos){
+    static void saveToFile(const std::string& fileName, std::map<int, T> & infos, Logger& logger){
         try {
             std::ofstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
-                std::cerr << "Error opening file for writing: " << fileName << std::endl;
+                logger.error("Error opening file for writing: " + QString::fromStdString(fileName));
                 return;
             }
             for(auto [_, info] : infos) {
                 file.write(reinterpret_cast<const char*>(&info), sizeof(info));
             }
 
-            std::cout << "Users saved to file " << fileName << " successfully." << std::endl;
+            logger.info("Informations saved to file '" + QString::fromStdString(fileName) + "' successfully.");
             file.close();
         }
         catch (...) {
-            std::cerr << "Error occurred while saving users to file." << std::endl;
+            logger.error("Error occurred while saving Informations to file.");
         }
     }
     //template <typename T>
-    static void loadFromFile(const std::string& fileName, std::map<int, T> & infos){
+    static void loadFromFile(const std::string& fileName, std::map<int, T> & infos, Logger& logger){
         try {
             std::ifstream file(fileName, std::ios::binary);
             if (!file.is_open()) {
-                std::cerr << "Error: Unable to open file for reading " << fileName << std::endl;
+                logger.error("Error: Unable to open file for reading " + QString::fromStdString(fileName) );
                 return;
             }
 
@@ -46,10 +47,10 @@ public:
             }
 
             file.close();
-            std::cout << "Loaded groups from file: " << fileName << std::endl;
+            logger.info("Informations are loaded from file: " + QString::fromStdString(fileName) + "successfully");
         }
         catch (...) {
-            std::cerr << "Error occurred while loading users from file." << std::endl;
+            logger.error("Error occurred while loading Informations from file: '" + QString::fromStdString(fileName) + "'");
         }
     }
 
