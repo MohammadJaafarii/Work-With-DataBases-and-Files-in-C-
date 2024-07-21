@@ -1,0 +1,10 @@
+^C:\USERS\USER\QTPROJECTS\PAYAMPARDAZ_PROJECT1\BUILD\CMAKEFILES\B7FEE7FA6C147CDEF191A83F60A9981E\GENERATE.STAMP.RULE
+setlocal
+C:\Users\User\Downloads\Compressed\cmake-3.30.0-windows-x86_64\cmake-3.30.0-windows-x86_64\bin\cmake.exe -SC:/Users/User/QTProjects/PayamPardaz_Project1 -BC:/Users/User/QTProjects/PayamPardaz_Project1/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/User/QTProjects/PayamPardaz_Project1/build/PayamPardaz_Project1.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

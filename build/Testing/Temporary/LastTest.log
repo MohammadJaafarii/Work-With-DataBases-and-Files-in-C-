@@ -1,0 +1,30 @@
+Start testing: Jul 21 20:55 Iran Standard Time
+----------------------------------------------------------
+1/1 Testing: ValidationTest
+1/1 Test: ValidationTest
+Command: "C:/Users/User/QTProjects/PayamPardaz_Project1/build/Debug/validation_test.exe"
+Directory: C:/Users/User/QTProjects/PayamPardaz_Project1/build
+"ValidationTest" start time: Jul 21 20:55 Iran Standard Time
+Output:
+----------------------------------------------------------
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from ValidationTest
+[ RUN      ] ValidationTest.ValidIP
+[       OK ] ValidationTest.ValidIP (0 ms)
+[ RUN      ] ValidationTest.InvalidIP
+[       OK ] ValidationTest.InvalidIP (0 ms)
+[----------] 2 tests from ValidationTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (1 ms total)
+[  PASSED  ] 2 tests.
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"ValidationTest" end time: Jul 21 20:55 Iran Standard Time
+"ValidationTest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Jul 21 20:55 Iran Standard Time

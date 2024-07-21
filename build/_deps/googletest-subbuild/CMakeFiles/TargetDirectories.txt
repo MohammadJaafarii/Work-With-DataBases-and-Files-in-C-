@@ -1,0 +1,3 @@
+C:/Users/User/QTProjects/PayamPardaz_Project1/build/_deps/googletest-subbuild/CMakeFiles/googletest-populate.dir
+C:/Users/User/QTProjects/PayamPardaz_Project1/build/_deps/googletest-subbuild/CMakeFiles/ALL_BUILD.dir
+C:/Users/User/QTProjects/PayamPardaz_Project1/build/_deps/googletest-subbuild/CMakeFiles/ZERO_CHECK.dir

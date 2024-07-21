@@ -1,0 +1,12 @@
+# CMake generation dependency list for this directory.
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/CheckCXXSourceCompiles.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/CheckIncludeFileCXX.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/CheckLibraryExists.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/FindPackageHandleStandardArgs.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/FindPackageMessage.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/FindThreads.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/GNUInstallDirs.cmake
+C:/Users/User/Downloads/Compressed/cmake-3.30.0-windows-x86_64/cmake-3.30.0-windows-x86_64/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake
+C:/Users/User/QTProjects/PayamPardaz_Project1/spdlog/CMakeLists.txt
+C:/Users/User/QTProjects/PayamPardaz_Project1/spdlog/cmake/ide.cmake
+C:/Users/User/QTProjects/PayamPardaz_Project1/spdlog/cmake/utils.cmake
