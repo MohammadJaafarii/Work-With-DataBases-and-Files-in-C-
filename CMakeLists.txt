@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
+
 project(PayamPardaz_Project1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)  # Use C++17 standard
@@ -8,10 +9,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Qt5 Configuration (adjust paths if necessary)
 set(CMAKE_PREFIX_PATH "C:/Qt/5.15.2/msvc2019_64")
 find_package(Qt5 REQUIRED COMPONENTS Core Sql)
-set(Qt5_DIR "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5")
+set(Qt5_DIR "C:\\Qt\\5.15.2\\mingw81_64\\lib\\cmake\\Qt5")
 
-# spdlog Integration
-add_subdirectory(spdlog)  # Assuming spdlog is a subdirectory with CMakeLists.txt
+set(CMAKE_TOOLCHAIN_FILE "C:/Users/User/source/vcpkg/scripts/buildsystems/vcpkg.cmake")
+find_package(spdlog CONFIG REQUIRED)
+find_package(clipp CONFIG REQUIRED)
 
 # gtest Integration (FetchContent approach)
 include(FetchContent)
@@ -37,11 +39,12 @@ add_executable(PayamPardaz_Project1
                group.h group.cpp
                detailpersonalinfo.h detailpersonalinfo.cpp
                logger.h logger.cpp
-               ../build-PayamPardaz_Project1-Desktop_Qt_5_15_2_MinGW_64_bit-Debug/DetailPersonalInfo.dat ../build-PayamPardaz_Project1-Desktop_Qt_5_15_2_MinGW_64_bit-Debug/Group.dat ../build-PayamPardaz_Project1-Desktop_Qt_5_15_2_MinGW_64_bit-Debug/Log.txt ../build-PayamPardaz_Project1-Desktop_Qt_5_15_2_MinGW_64_bit-Debug/sourceDB.db ../build-PayamPardaz_Project1-Desktop_Qt_5_15_2_MinGW_64_bit-Debug/targetDB.db ../build-PayamPardaz_Project1-Desktop_Qt_5_15_2_MinGW_64_bit-Debug/User.dat)
+           )
 
 target_link_libraries(PayamPardaz_Project1
                      Qt5::Core Qt5::Sql
                      spdlog::spdlog
+                     clipp::clipp
                      validation)
 
 # Unit Tests

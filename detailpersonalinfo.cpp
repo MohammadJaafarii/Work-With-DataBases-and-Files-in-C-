@@ -130,6 +130,8 @@ DetailInfo DetailPersonalInfo::loadDetailPersonalInfo(DatabaseManager& dbManager
 
 void DetailPersonalInfo::saveDetailPersonalInfosToDatabase(DatabaseManager& dbManager, const DetailInfo& details, Logger& logger) {
 
+
+
     try{
         int success = 0,
             failed = 0;
@@ -138,6 +140,9 @@ void DetailPersonalInfo::saveDetailPersonalInfosToDatabase(DatabaseManager& dbMa
         for (const auto& pair : details) {
             int userID = pair.first;
             const DetailPersonalInfo& detail = pair.second;
+
+
+
 
             QSqlQuery query;
             query.prepare("INSERT INTO 'DetailPersonalInfo' (userid, firstname, lastname, office, phone, personnelcode, address) "
@@ -152,7 +157,7 @@ void DetailPersonalInfo::saveDetailPersonalInfosToDatabase(DatabaseManager& dbMa
             query.bindValue(":Address", std::wcslen(detail.Address) == 0 ? QVariant(QVariant::String) : QString::fromWCharArray(detail.Address));
 
             if (!query.exec()) {
-                logger.warn("Error inserting data into DetailPersonalInfo: " + query.lastError().text() + " for UserID: " + QString::number(userID));
+                logger.error("Error inserting data into DetailPersonalInfo: " + query.lastError().text() + " for UserID: " + QString::number(userID));
                 failed ++;
                 continue;
             } else {

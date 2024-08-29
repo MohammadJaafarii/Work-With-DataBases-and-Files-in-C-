@@ -115,17 +115,19 @@ void User::saveUsersToDatabase(DatabaseManager& dbManager, UserInfo& users,
                     auto it = PersonalInfo.find(id);
                     if (it != PersonalInfo.end()) {
                         // Get the user associated with oldKey
-                        DetailPersonalInfo &user = it->second;
+                        DetailPersonalInfo user = it->second;
 
-
-                        // Insert user with the newKey into the map
-                        PersonalInfo[new_id] = user;
-
-                        // Update the user's ID to be the newKey
                         user.ID = new_id;
+                        // Insert user with the newKey into the map
+                        PersonalInfo.erase(it);
+                        PersonalInfo[id] = user;
+                        // Update the user's ID to be the newKey
+
+
+
 
                         // Erase the oldKey from the map
-                        PersonalInfo.erase(it);
+
 
                         // Print success message
                     }
@@ -134,6 +136,8 @@ void User::saveUsersToDatabase(DatabaseManager& dbManager, UserInfo& users,
 
                 success ++;
             }
+
+
         }
 
         logger.info(QString::number(success) + " Items inserted successfully and " + QString::number(failed) + " Items are failed to be inserted!");

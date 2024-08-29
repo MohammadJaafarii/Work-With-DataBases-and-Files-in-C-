@@ -44,6 +44,7 @@ public:
             T info;
             while (file.read(reinterpret_cast<char*>(&info), sizeof(info))) {
                 infos[info.ID] = info;
+
             }
 
             file.close();

@@ -3,7 +3,7 @@
 #define VALIDATION_TEST_H
 
 #include <gtest/gtest.h>
-#include "validation.h" // فرض می‌شود که این فایل شامل کلاس validator است
+#include "validation.h"
 
 class ValidationTest : public ::testing::Test {
 protected:
